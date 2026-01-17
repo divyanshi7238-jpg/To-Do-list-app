@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>To-Do List Application </title>
+<style>
+/* Basic Reset & Body Styles */
+body {
+  margin: 0;
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background 0.5s;
+}
+body.dark-mode {
+  background: #222;
+  color: #eee;
+}
+/* Container styles for pages */
+.page {
+  display: none;
+  width: 100%;
+  max-width: 600px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 20px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+}
+.page.active {
+  display: block;
+}
+/* Common styles for both pages */
+h1 {
+  font-family: 'Brush Script MT', cursive;
+  font-size: 2.5em;
+  background: linear-gradient(45deg, #ff6ec4, #7873f5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-align: center;
+  margin-bottom: 20px;
+}
+button {
+  cursor: pointer;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f7971e, #ffd200);
+  transition: background 0.3s;
+}
+button:hover {
+  background: linear-gradient(135deg, #ffd200, #f7971e);
+}
+/* Navigation button */
+.nav-btn {
+  margin-bottom: 10px;
+  background: #4CAF50;
+  color: white;
+  font-size: 1em;
+}
+.nav-btn:hover {
+  background: #45a049;
+}
+/* Specific styles for the to-do list page */
+#todo-page .controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+#todo-page .filter-buttons button {
+  margin-left: 5px;
+}
+#todo-page .input-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+#todo-page #task-input {
+  flex: 2;
+  padding: 10px;
+  border-radius: 10px;
+  border: 2px solid #ccc;
+  font-size: 1em;
+}
+#todo-page #priority-select, #todo-page #due-date {
+  padding: 10px;
+  border-radius: 10px;
+  border: 2px solid #ccc;
+  font-size: 1em;
+}
+#todo-page #add-btn {
+  flex: 1;
+}
+#task-list {
+  list-style: none;
+  padding: 0;
+}
+.task {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #9d463c;
+  margin-bottom: 10px;
+  padding: 15px;
+  border-radius: 15px;
+  cursor: grab;
+  transition: background 0.3s, transform 0.2s;
+}
+.task.dragging {
+  opacity: 0.5;
+}
+.task:hover {
+  background: #9d463c;
+  transform: scale(1.02);
+}
+.task span {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+.task span.completed {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.task .task-info {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+}
+.task .buttons {
+  display: flex;
+  gap: 10px;
+}
+button.task-btn {
+  font-size: 1.2em;
+  background: transparent;
+}
+button.task-btn:hover {
+  transform: scale(1.2);
+}
+/* Priority Colors */
+.priority-low {
+  border-left: 5px solid #4CAF50;
+}
+.priority-medium {
+  border-left: 5px solid #FFC107;
+}
+.priority-high {
+  border-left: 5px solid #F44336;
+}
+
+/* Styles for results page */
+#results-page {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+#results-list {
+  list-style: none;
+  padding: 0;
+}
+.result-item {
+  background: #ffe4e1;
+  margin-bottom: 8px;
+  padding: 10px;
+  border-radius: 10px;
+}
+</style>
+</head>
+<body>
+<!-- Page 1: To-Do List -->
+<div id="todo-page" class="page active">
+  <h1>My To-Do List</h1>
+  <button class="nav-btn" id="go-to-results">View Results</button>
+  <div class="controls">
+    <button id="theme-toggle">🌙 Theme</button>
+    <div class="filter-buttons">
+      <button data-filter="all" class="active">All</button>
+      <button data-filter="pending">Pending</button>
+      <button data-filter="completed">Completed</button>
+    </div>
+  </div>
+  <div class="input-section">
+    <input type="text" id="task-input" placeholder="Add a new task..." />
+    <select id="priority-select">
+      <option value="low">Low Priority</option>
+      <option value="medium" selected>Medium Priority</option>
+      <option value="high">High Priority</option>
+    </select>
+    <input type="date" id="due-date" />
+    <button id="add-btn">Add</button>
+  </div>
+  <ul id="task-list"></ul>
+</div>
+
+<!-- Page 2: Results Display -->
+<div id="results-page" class="page">
+  <h1>Results - Tasks Overview</h1>
+  <button class="nav-btn" id="back-to-todo">Back to List</button>
+  <button class="nav-btn" id="refresh-results">Refresh</button>
+  <div>
+    <h3>All Tasks</h3>
+    <ul id="results-list"></ul>
+  </div>
+</div>
+
+<script>
+// Shared variables
+const taskInput = document.getElementById('task-input');
+const addBtn = document.getElementById('add-btn');
+const taskList = document.getElementById('task-list');
+const filterButtons = document.querySelectorAll('.filter-buttons button');
+const themeToggleBtn = document.getElementById('theme-toggle');
+
+const todoPage = document.getElementById('todo-page');
+const resultsPage = document.getElementById('results-page');
+
+const resultsList = document.getElementById('results-list');
+
+let tasks = [];
+let currentFilter = 'all';
+let draggedTask = null;
+
+// Load tasks from localStorage
+loadTasks();
+
+// Navigation buttons
+document.getElementById('go-to-results').addEventListener('click', () => {
+  showPage('results');
+  displayResults();
+});
+document.getElementById('back-to-todo').addEventListener('click', () => {
+  showPage('todo');
+});
+document.getElementById('refresh-results').addEventListener('click', () => {
+  displayResults();
+});
+document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
+// Add task
+addBtn.addEventListener('click', addTask);
+taskInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') addTask();
+});
+filterButtons.forEach(btn => btn.addEventListener('click', setFilter));
+
+function showPage(page) {
+  if (page === 'todo') {
+    todoPage.classList.add('active');
+    resultsPage.classList.remove('active');
+  } else {
+    todoPage.classList.remove('active');
+    resultsPage.classList.add('active');
+  }
+}
+
+// Add task function
+function addTask() {
+  const text = taskInput.value.trim();
+  if (!text) return;
+  const priority = document.getElementById('priority-select').value;
+  const dueDate = document.getElementById('due-date').value;
+  const task = {
+    id: Date.now(),
+    text,
+    completed: false,
+    priority,
+    dueDate,
+  };
+  tasks.push(task);
+  renderTasks();
+  saveTasks();
+  taskInput.value = '';
+  document.getElementById('due-date').value = '';
+}
+
+// Render tasks in the list
+function renderTasks() {
+  taskList.innerHTML = '';
+  tasks.forEach(task => {
+    if (currentFilter === 'pending' && task.completed) return;
+    if (currentFilter === 'completed' && !task.completed) return;
+
+    const li = document.createElement('li');
+    li.className = `task priority-${task.priority}`;
+    li.draggable = true;
+
+    // Drag events
+    li.addEventListener('dragstart', (e) => {
+      draggedTask = li;
+      e.dataTransfer.effectAllowed = 'move';
+      li.classList.add('dragging');
+    });
+    li.addEventListener('dragend', () => {
+      li.classList.remove('dragging');
+    });
+    li.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+    li.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (draggedTask && draggedTask !== li) {
+        const allTasks = Array.from(taskList.children);
+        const indexDragged = allTasks.indexOf(draggedTask);
+        const indexTarget = allTasks.indexOf(li);
+        if (indexDragged < indexTarget) {
+          taskList.insertBefore(draggedTask, li.nextSibling);
+        } else {
+          taskList.insertBefore(draggedTask, li);
+        }
+        saveTasks();
+      }
+    });
+
+    const span = document.createElement('span');
+    span.innerHTML = `<strong>${task.text}</strong>`;
+    if (task.dueDate) {
+      span.innerHTML += `<br/>Due: ${task.dueDate}`;
+    }
+    span.className = task.completed ? 'completed' : '';
+    span.addEventListener('click', () => {
+      task.completed = !task.completed;
+      saveTasks();
+      renderTasks();
+    });
+
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'task-info';
+    infoDiv.appendChild(span);
+
+    const btnDiv = document.createElement('div');
+    btnDiv.className = 'buttons';
+
+    const editBtn = document.createElement('button');
+    editBtn.innerHTML = '✏️';
+    editBtn.title = 'Edit';
+    editBtn.className = 'task-btn';
+    editBtn.onclick = () => {
+      const newText = prompt('Edit task:', task.text);
+      if (newText !== null && newText.trim() !== '') {
+        task.text = newText.trim();
+        saveTasks();
+        renderTasks();
+      }
+    };
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.innerHTML = '🗑️';
+    deleteBtn.title = 'Delete';
+    deleteBtn.className = 'task-btn';
+    deleteBtn.onclick = () => {
+      tasks = tasks.filter(t => t.id !== task.id);
+      saveTasks();
+      renderTasks();
+    };
+
+    btnDiv.appendChild(editBtn);
+    btnDiv.appendChild(deleteBtn);
+
+    li.appendChild(infoDiv);
+    li.appendChild(btnDiv);
+
+    taskList.appendChild(li);
+  });
+}
+
+// Set filter for task list
+function setFilter(e) {
+  currentFilter = e.target.dataset.filter;
+  document.querySelectorAll('.filter-buttons button').forEach(btn => btn.classList.remove('active'));
+  e.target.classList.add('active');
+  renderTasks();
+}
+
+// Save tasks to local storage
+function saveTasks() {
+  localStorage.setItem('tasks', JSON.stringify(tasks));
+}
+
+// Load tasks from local storage
+function loadTasks() {
+  const stored = localStorage.getItem('tasks');
+  if (stored) {
+    tasks = JSON.parse(stored);
+  }
+  renderTasks();
+}
+
+// Toggle theme
+function toggleTheme() {
+  document.body.classList.toggle('dark-mode');
+  document.getElementById('theme-toggle').textContent = document.body.classList.contains('dark-mode') ? '☀️ Light' : '🌙 Theme';
+}
+
+// Display results in the second page
+function displayResults() {
+  resultsList.innerHTML = '';
+  if (tasks.length === 0) {
+    resultsList.innerHTML = '<li>No tasks available.</li>';
+    return;
+  }
+  tasks.forEach(task => {
+    const item = document.createElement('li');
+    item.className = 'result-item';
+    item.innerHTML = `
+      <strong>${task.text}</strong><br/>
+      Priority: ${task.priority}<br/>
+      Due: ${task.dueDate || 'N/A'}<br/>
+      Status: ${task.completed ? 'Completed' : 'Pending'}
+    `;
+    resultsList.appendChild(item);
+  });
+}
+</script>
+</body>
+</html>
